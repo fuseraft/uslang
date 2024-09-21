@@ -233,6 +233,7 @@ enum KName {
   Builtin_MLLoss_BinaryCrossEntropy,
   Builtin_MLLoss_BinaryFocal,
   Builtin_MLLoss_CatCrossEntropy,
+  Builtin_MLLoss_CosSimilarity,
   Builtin_Package_Home,
   Builtin_Reflector_RBin,
   Builtin_Reflector_RInspect,

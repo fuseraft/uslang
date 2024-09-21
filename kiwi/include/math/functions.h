@@ -108,6 +108,7 @@ struct {
     } else if (std::holds_alternative<k_list>(left)) {
       auto list = std::get<k_list>(left);
       if (std::holds_alternative<k_list>(right)) {
+        list->subLists++;
         const auto& rightList = std::get<k_list>(right)->elements;
         for (const auto& item : rightList) {
           list->elements.emplace_back(item);
@@ -933,6 +934,81 @@ struct {
     }
     return sum;
   }
+
+  double dot_product(const k_list& a, const k_list& b) {
+    double dot = 0.0;
+
+    if (a->elements.size() != b->elements.size()) {
+      throw std::invalid_argument("Lists must have the same size.");
+    }
+
+    if (a->subLists == 0 && b->subLists == 0) {
+      for (size_t i = 0; i < a->elements.size(); ++i) {
+        const auto& elem_a = a->elements[i];
+        const auto& elem_b = b->elements[i];
+
+        if (auto val_a = std::get_if<double>(&elem_a)) {
+          if (auto val_b = std::get_if<double>(&elem_b)) {
+            dot += (*val_a) * (*val_b);
+          } else {
+            throw std::invalid_argument(
+                "Inconsistent data types in list elements.");
+          }
+        } else {
+          throw std::invalid_argument(
+              "Cosine similarity for nested lists is not supported at this "
+              "level.");
+        }
+      }
+    } else {
+      for (size_t i = 0; i < a->elements.size(); ++i) {
+        const auto& elem_a = a->elements[i];
+        const auto& elem_b = b->elements[i];
+
+        if (auto sublist_a = std::get_if<k_list>(&elem_a)) {
+          if (auto sublist_b = std::get_if<k_list>(&elem_b)) {
+            dot += dot_product(*sublist_a, *sublist_b);
+          } else {
+            throw std::invalid_argument(
+                "Inconsistent data types in list elements.");
+          }
+        } else {
+          throw std::invalid_argument(
+              "Expected nested k_list for higher-dimensional tensors.");
+        }
+      }
+    }
+
+    return dot;
+  }
+
+  double magnitude(const k_list& list) {
+    double sum = 0.0;
+
+    if (list->subLists == 0) {
+      for (const auto& elem : list->elements) {
+        if (auto val = std::get_if<double>(&elem)) {
+          sum += (*val) * (*val);
+        } else {
+          throw std::invalid_argument(
+              "Cosine similarity for nested lists is not supported at this "
+              "level.");
+        }
+      }
+    } else {
+      for (const auto& elem : list->elements) {
+        if (auto sublist = std::get_if<k_list>(&elem)) {
+          sum += magnitude(*sublist) * magnitude(*sublist);
+        } else {
+          throw std::invalid_argument(
+              "Expected nested k_list for higher-dimensional tensors.");
+        }
+      }
+    }
+
+    return std::sqrt(sum);
+  }
+
 } TensorFunc;
 
 struct {
@@ -1488,88 +1564,70 @@ struct {
                                        const k_value& epsilon) {
     if (std::holds_alternative<k_list>(y_true) &&
         std::holds_alternative<k_list>(y_pred)) {
-      const auto& yTrueList = std::get<k_list>(y_true)->elements;
-      const auto& yPredList = std::get<k_list>(y_pred)->elements;
+      const auto& yTrueList = std::get<k_list>(y_true);
+      const auto& yPredList = std::get<k_list>(y_pred);
 
-      if (yTrueList.size() != yPredList.size()) {
+      if (yTrueList->elements.size() != yPredList->elements.size()) {
         throw TensorShapeError(token, MLBuiltins.LossCatCrossEntropy);
       }
 
-      if (yTrueList.empty()) {
-        throw EmptyTensorError(token, "y_true", MLBuiltins.LossCatCrossEntropy);
-      }
+      if (yTrueList->subLists == 0 && yPredList->subLists == 0) {
+        const auto& epsilonValue = get_double(token, epsilon);
+        const auto& yTrueVec = yTrueList->elements;
+        const auto& yPredVec = yPredList->elements;
 
-      double total_loss = 0.0;
-      for (size_t i = 0; i < yTrueList.size(); ++i) {
-        total_loss += std::get<double>(__categorical_crossentropy__(
-            token, yTrueList[i], yPredList[i], epsilon));
-      }
+        if (yTrueVec.empty() || yPredVec.empty()) {
+          throw EmptyTensorError(token, "y_true",
+                                 MLBuiltins.LossCatCrossEntropy);
+        }
 
-      return total_loss / yTrueList.size();
+        double loss = 0.0;
+        for (size_t i = 0; i < yTrueVec.size(); ++i) {
+          double pred = std::max(get_double(token, yPredVec[i]), epsilonValue);
+          loss -= get_double(token, yTrueVec[i]) * std::log(pred);
+        }
+
+        return loss;
+      } else {
+        double total_loss = 0.0;
+        for (size_t i = 0; i < yTrueList->elements.size(); ++i) {
+          total_loss += std::get<double>(__categorical_crossentropy__(
+              token, yTrueList->elements[i], yPredList->elements[i], epsilon));
+        }
+
+        return total_loss / yTrueList->elements.size();
+      }
     } else {
-      double yTrue = get_double(token, y_true);
-      double yPred = get_double(token, y_pred);
-      const auto& epsilonValue = get_double(token, epsilon);
-
-      double pred = std::max(yPred, epsilonValue);
-
-      return -yTrue * std::log(pred);
+      throw ConversionError(token,
+                            "Expected k_list for both y_true and y_pred.");
     }
   }
 
   k_value __cosine_similarity__(const Token& token, const k_value& y_true,
                                 const k_value& y_pred) {
     if (!std::holds_alternative<k_list>(y_true)) {
-      throw ConversionError(
-          token,
-          "Expected a list for actual values in cosine similarity function.");
+      throw TensorError(token, "y_true", MLBuiltins.LossCosSimilarity);
     }
     if (!std::holds_alternative<k_list>(y_pred)) {
-      throw ConversionError(token,
-                            "Expected a list for predicted values in cosine "
-                            "similarity function.");
+      throw TensorError(token, "y_pred", MLBuiltins.LossCosSimilarity);
     }
 
-    const auto& yTrue = std::get<k_list>(y_true)->elements;
-    const auto& yPred = std::get<k_list>(y_pred)->elements;
+    const auto& yTrue = std::get<k_list>(y_true);
+    const auto& yPred = std::get<k_list>(y_pred);
 
-    if (yTrue.size() != yPred.size()) {
-      throw InvalidOperationError(
-          token,
-          "All lists must be the same shape in cosine similarity function.");
+    double dot = TensorFunc.dot_product(yTrue, yPred);
+    double mag_true = TensorFunc.magnitude(yTrue);
+    double mag_pred = TensorFunc.magnitude(yPred);
+
+    if (mag_true == 0) {
+      throw DivideByZeroError(token, "y_true has a magnitude of zero.");
     }
 
-    if (yTrue.empty()) {
-      throw EmptyListError(
-          token, "Expected non-empty lists in cosine similarity function.");
+    if (mag_pred == 0.0) {
+      throw DivideByZeroError(token, "y_pred has a magnitude of zero.");
     }
 
-    double dot_product = 0.0;
-    double norm_true = 0.0;
-    double norm_pred = 0.0;
-
-    for (size_t i = 0; i < yTrue.size(); ++i) {
-      const auto& yTrueValue = get_double(token, yTrue[i]);
-      const auto& yPredValue = get_double(token, yPred[i]);
-      dot_product += yTrueValue * yPredValue;
-      norm_true += yTrueValue * yTrueValue;
-      norm_pred += yPredValue * yPredValue;
-    }
-
-    norm_true = std::sqrt(norm_true);
-    norm_pred = std::sqrt(norm_pred);
-
-    if (norm_true == 0) {
-      throw InvalidOperationError(
-          token, "The list of actual values is a zero vector.");
-    }
-
-    if (norm_pred == 0) {
-      throw InvalidOperationError(
-          token, "The list of predicted values is a zero vector.");
-    }
-
-    return dot_product / (norm_true * norm_pred);
+    return 1.0 - (dot / (mag_true * mag_pred));
   }
 
   k_value __dice_loss__(const Token& token, const k_value& y_true,

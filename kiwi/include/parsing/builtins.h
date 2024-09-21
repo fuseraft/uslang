@@ -594,7 +594,8 @@ struct {
       OptimAdamax,      OptimAdam,
       OptimNadam,       OptimSGD,
       OptimSGDNesterov, LossBinaryCrossEntropy,
-      LossBinaryFocal,  LossCatCrossEntropy};
+      LossBinaryFocal,  LossCatCrossEntropy,
+      LossCosSimilarity};
 
   std::unordered_set<KName> st_builtins = {
       KName::Builtin_MLReg_Dropout,
@@ -612,7 +613,8 @@ struct {
       KName::Builtin_MLOptim_SGDNesterov,
       KName::Builtin_MLLoss_BinaryCrossEntropy,
       KName::Builtin_MLLoss_BinaryFocal,
-      KName::Builtin_MLLoss_CatCrossEntropy};
+      KName::Builtin_MLLoss_CatCrossEntropy,
+      KName::Builtin_MLLoss_CosSimilarity};
 
   bool is_builtin(const k_string& arg) {
     return builtins.find(arg) != builtins.end();

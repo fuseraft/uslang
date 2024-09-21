@@ -171,6 +171,8 @@ class DivideByZeroError : public KiwiError {
  public:
   DivideByZeroError(const Token& token)
       : KiwiError(token, "DivideByZeroError", "Attempted to divide by zero.") {}
+  DivideByZeroError(const Token& token, const std::string& msg)
+      : KiwiError(token, "DivideByZeroError", msg) {}
 };
 
 class HomePackageUndefinedError : public KiwiError {

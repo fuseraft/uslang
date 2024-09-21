@@ -220,3 +220,55 @@ loss = __binary_crossentropy__(y_true, y_pred)
 println loss # 0.164252
 #/
 
+/###############################
+## Categorical Cross-Entropy ##
+##############################
+# Initialize n-dimensional tensors for y_true (one-hot encoded) and y_pred (probabilities)
+y_true = [
+  [1, 0, 0],  # First sample belongs to class 0
+  [0, 1, 0],  # Second sample belongs to class 1
+  [0, 0, 1]   # Third sample belongs to class 2
+]
+
+y_pred = [
+  [0.7, 0.2, 0.1],  # Prediction probabilities for the first sample
+  [0.1, 0.8, 0.1],  # Prediction probabilities for the second sample
+  [0.2, 0.3, 0.5]   # Prediction probabilities for the third sample
+]
+
+# Calculate categorical cross-entropy loss for n-dimensional tensors
+loss = __categorical_crossentropy__(y_true, y_pred)
+
+# Output the result
+println loss  # 0.424322
+#/
+
+
+# Initialize n-dimensional tensors for y_true and y_pred
+y_true = [
+  [
+    [1, 0, 0],
+    [0, 1, 0]
+  ],
+  [
+    [0, 0, 1],
+    [1, 0, 0]
+  ]
+]
+
+y_pred = [
+  [
+    [0.8, 0.1, 0.1],
+    [0.1, 0.9, 0.0]
+  ],
+  [
+    [0.0, 0.2, 0.8],
+    [0.7, 0.2, 0.1]
+  ]
+]
+
+# Calculate cosine similarity for n-dimensional tensors
+similarity = __cosine_similarity__(y_true, y_pred)
+
+# Output the result
+println similarity  # 0.227081

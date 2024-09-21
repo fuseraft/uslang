@@ -652,6 +652,8 @@ class Lexer {
       st = KName::Builtin_MLLoss_BinaryFocal;
     } else if (builtin == MLBuiltins.LossCatCrossEntropy) {
       st = KName::Builtin_MLLoss_CatCrossEntropy;
+    } else if (builtin == MLBuiltins.LossCosSimilarity) {
+      st = KName::Builtin_MLLoss_CosSimilarity;
     }
 
     return createToken(KTokenType::IDENTIFIER, st, builtin);

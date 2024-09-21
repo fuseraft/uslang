@@ -71,9 +71,17 @@ struct Null {};
 
 struct List {
   std::vector<k_value> elements;
+  int subLists = 0;
 
   List() {}
-  List(const std::vector<k_value>& values) : elements(values) {}
+  List(const std::vector<k_value>& values) : elements(values) {
+    subLists = 0;
+    for (const auto& val : values) {
+      if (std::holds_alternative<k_list>(val)) {
+        ++subLists;
+      }
+    }
+  }
 };
 
 struct Hash {

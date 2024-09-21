@@ -1017,16 +1017,6 @@ class CoreBuiltinHandler {
     }
 
     auto typeName = get_string(term, args.at(0));
-    // if (!TypeNames.is_typename(typeName)) {
-    //   if (std::holds_alternative<k_object>(value)) {
-    //     const auto& obj = std::get<k_object>(value);
-    //     const auto& className = obj->className;
-
-    //     return same_value(className, typeName) ||
-    //            same_value(classes.at(className).getBaseClassName(), typeName);
-    //   }
-    //   throw InvalidTypeNameError(term, typeName);
-    // }
 
     switch (value.index()) {
       case 0:  // k_int
@@ -1195,7 +1185,14 @@ class CoreBuiltinHandler {
           term, "Expected a list for builtin `" + KiwiBuiltins.Push + "`.");
     }
 
-    std::get<k_list>(value)->elements.push_back(args.at(0));
+    const auto& list = std::get<k_list>(value);
+    const auto& addition = args.at(0);
+    list->elements.push_back(addition);
+
+    if (std::holds_alternative<k_list>(addition)) {
+      list->subLists++;
+    }
+
     return true;
   }
 
@@ -1210,13 +1207,17 @@ class CoreBuiltinHandler {
           term, "Expected a list for builtin `" + KiwiBuiltins.Pop + "`.");
     }
 
-    auto& elements = std::get<k_list>(value)->elements;
+    const auto& list = std::get<k_list>(value);
+    auto& elements = list->elements;
 
     if (elements.empty()) {
       return static_cast<k_int>(0);
     }
 
     auto _value = elements.back();
+    if (std::holds_alternative<k_list>(_value)) {
+      list->subLists--;
+    }
     elements.pop_back();
     return _value;
   }
@@ -1232,7 +1233,14 @@ class CoreBuiltinHandler {
           term, "Expected a list for builtin `" + KiwiBuiltins.Enqueue + "`.");
     }
 
-    std::get<k_list>(value)->elements.push_back(args.at(0));
+    const auto& list = std::get<k_list>(value);
+    const auto& addition = args.at(0);
+    list->elements.push_back(addition);
+
+    if (std::holds_alternative<k_list>(addition)) {
+      list->subLists++;
+    }
+
     return true;
   }
 
@@ -1247,13 +1255,17 @@ class CoreBuiltinHandler {
           term, "Expected a list for builtin `" + KiwiBuiltins.Dequeue + "`.");
     }
 
-    auto& elements = std::get<k_list>(value)->elements;
+    const auto& list = std::get<k_list>(value);
+    auto& elements = list->elements;
 
     if (elements.empty()) {
       return static_cast<k_int>(0);
     }
 
     auto _value = elements.front();
+    if (std::holds_alternative<k_list>(_value)) {
+      list->subLists--;
+    }
     elements.erase(elements.begin());
     return _value;
   }
@@ -1269,13 +1281,17 @@ class CoreBuiltinHandler {
           term, "Expected a list for builtin `" + KiwiBuiltins.Shift + "`.");
     }
 
-    auto& elements = std::get<k_list>(value)->elements;
+    const auto& list = std::get<k_list>(value);
+    auto& elements = list->elements;
 
     if (elements.empty()) {
       return static_cast<k_int>(0);
     }
 
     auto _value = elements.front();
+    if (std::holds_alternative<k_list>(_value)) {
+      list->subLists--;
+    }
     elements.erase(elements.begin());
     return _value;
   }
@@ -1291,8 +1307,14 @@ class CoreBuiltinHandler {
           term, "Expected a list for builtin `" + KiwiBuiltins.Unshift + "`.");
     }
 
-    auto& elements = std::get<k_list>(value)->elements;
-    elements.insert(elements.begin(), args.at(0));
+    const auto& list = std::get<k_list>(value);
+    const auto& addition = args.at(0);
+
+    if (std::holds_alternative<k_list>(addition)) {
+      list->subLists++;
+    }
+
+    list->elements.insert(list->elements.begin(), addition);
     return value;
   }
 
@@ -1307,8 +1329,14 @@ class CoreBuiltinHandler {
           term, "Expected a list for builtin `" + KiwiBuiltins.Concat + "`.");
     }
 
-    auto& elements = std::get<k_list>(value)->elements;
+    const auto& list = std::get<k_list>(value);
+    auto& elements = list->elements;
     const auto& concat = std::get<k_list>(args.at(0))->elements;
+    for (const auto& val : concat) {
+      if (std::holds_alternative<k_list>(val)) {
+        list->subLists++;
+      }
+    }
     elements.insert(elements.end(), concat.begin(), concat.end());
     return value;
   }
@@ -1324,7 +1352,8 @@ class CoreBuiltinHandler {
           term, "Expected a list for builtin `" + KiwiBuiltins.Insert + "`.");
     }
 
-    auto& elements = std::get<k_list>(value)->elements;
+    const auto& list = std::get<k_list>(value);
+    auto& elements = list->elements;
     size_t index = get_integer(term, args.at(1));
 
     if (index > elements.size()) {
@@ -1332,7 +1361,11 @@ class CoreBuiltinHandler {
           term, "Index out of bounds for `insert` operation.");
     }
 
-    elements.insert(elements.begin() + index, args.at(0));
+    const auto& element = args.at(0);
+    if (std::holds_alternative<k_list>(element)) {
+      list->subLists++;
+    }
+    elements.insert(elements.begin() + index, element);
     return value;
   }
 
@@ -1348,10 +1381,14 @@ class CoreBuiltinHandler {
       hash->remove(key);
       return hash;
     } else if (std::holds_alternative<k_list>(value)) {
-      auto& elements = std::get<k_list>(value)->elements;
+      const auto& list = std::get<k_list>(value);
+      auto& elements = list->elements;
       auto it = std::find(elements.begin(), elements.end(), args.at(0));
 
       if (it != elements.end()) {
+        if (std::holds_alternative<k_list>(args.at(0))) {
+          list->subLists--;
+        }
         elements.erase(it);
       }
 
@@ -1373,7 +1410,8 @@ class CoreBuiltinHandler {
           term, "Expected a list for builtin `" + KiwiBuiltins.RemoveAt + "`.");
     }
 
-    auto& elements = std::get<k_list>(value)->elements;
+    const auto& list = std::get<k_list>(value);
+    auto& elements = list->elements;
     size_t index = get_integer(term, args.at(0));
 
     if (index >= elements.size()) {
@@ -1381,6 +1419,9 @@ class CoreBuiltinHandler {
           term, "Index out of bounds for `removeAt` operation.");
     }
 
+    if (std::holds_alternative<k_list>(elements.at(index))) {
+      list->subLists--;
+    }
     elements.erase(elements.begin() + index);
     return value;
   }
@@ -1403,18 +1444,13 @@ class CoreBuiltinHandler {
       throw EmptyListError(term, "Cannot rotate an empty list.");
     }
 
-    // Normalize the rotation
     rotation %= static_cast<int>(elements.size());
     if (rotation < 0) {
-      rotation +=
-          elements
-              .size();  // Convert negative rotation to equivalent positive rotation
+      rotation += elements.size();
     }
 
-    // Calculate the equivalent left rotation since std::rotate performs left rotation
     rotation = elements.size() - rotation;
 
-    // Perform the rotation
     std::rotate(elements.begin(), elements.begin() + rotation, elements.end());
     return value;
   }
@@ -1482,10 +1518,12 @@ class CoreBuiltinHandler {
       }
     };
 
-    const auto& elements = std::get<k_list>(value)->elements;
+    const auto& list = std::get<k_list>(value);
+    const auto& elements = list->elements;
     for (const auto& element : elements) {
       flattenElement(element);
     }
+    list->subLists = 0;
     return flattened;
   }
 
@@ -1502,17 +1540,17 @@ class CoreBuiltinHandler {
 
     const auto& elements1 = std::get<k_list>(value)->elements;
     const auto& elements2 = std::get<k_list>(args.at(0))->elements;
-    auto zipped = std::make_shared<List>();
     auto win_min = (elements1.size() < elements2.size()) ? elements1.size()
                                                          : elements2.size();
+    std::vector<k_value> values;
     for (size_t i = 0; i < win_min; ++i) {
       auto pair = std::make_shared<List>();
       pair->elements.push_back(elements1.at(i));
       pair->elements.push_back(elements2.at(i));
-      zipped->elements.push_back(pair);
+      values.push_back(pair);
     }
 
-    return zipped;
+    return std::make_shared<List>(values);
   }
 
   static k_value executeSlice(const Token& term, const k_value& value,
@@ -1535,11 +1573,10 @@ class CoreBuiltinHandler {
           term, "Invalid start or end index for `slice` operation.");
     }
 
-    auto slicedList = std::make_shared<List>();
-    auto& slice = slicedList->elements;
+    std::vector<k_value> slice;
     slice.insert(slice.begin(), elements.begin() + start,
                  elements.begin() + end);
-    return slicedList;
+    return std::make_shared<List>(slice);
   }
 
   static k_value executeClear(const Token& term, const k_value& value,
@@ -1549,7 +1586,9 @@ class CoreBuiltinHandler {
     }
 
     if (std::holds_alternative<k_list>(value)) {
-      std::get<k_list>(value)->elements.clear();
+      const auto& list = std::get<k_list>(value);
+      list->elements.clear();
+      list->subLists = 0;
       return value;
     } else if (std::holds_alternative<k_hash>(value)) {
       auto hash = std::get<k_hash>(value);

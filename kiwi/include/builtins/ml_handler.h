@@ -66,6 +66,9 @@ class MLBuiltinHandler {
       case KName::Builtin_MLLoss_CatCrossEntropy:
         return executeLossCatCrossEntropy(term, args);
 
+      case KName::Builtin_MLLoss_CosSimilarity:
+        return executeLossCatCrossEntropy(term, args);
+
       default:
         break;
     }
@@ -74,6 +77,15 @@ class MLBuiltinHandler {
   }
 
  private:
+  static k_value executeLossCosineSimilarity(const Token& term,
+                                             const std::vector<k_value>& args) {
+    if (args.size() != 2) {
+      throw BuiltinUnexpectedArgumentError(term, MLBuiltins.LossCosSimilarity);
+    }
+
+    return MLLossBuiltins.__cosine_similarity__(term, args.at(0), args.at(1));
+  }
+
   static k_value executeLossCatCrossEntropy(const Token& term,
                                             const std::vector<k_value>& args) {
     if (args.size() < 2 || args.size() > 3) {
